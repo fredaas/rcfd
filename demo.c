@@ -159,6 +159,9 @@ static void draw_density(void)
         }
     }
 
+    for (i = 0; i < N * N; i++)
+        dens[i] *= 0.98;
+
     glEnd();
 }
 
@@ -188,10 +191,12 @@ static void get_from_UI(float *d, float *u, float *v)
     if (i < 1 || i > N || j < 1 || j > N)
         return;
 
+    #define abs(v) ((v) < 0 ? (v) * (-1) : (v))
+
     if (mouse_down[0])
     {
-        u[IX(i, j)] = force * (mx - omx);
-        v[IX(i, j)] = force * (omy - my);
+        // u[IX(i, j)] = force * (mx - omx);
+        v[IX(i, j)] = force * abs(omy - my);
     }
 
     if (mouse_down[2])
@@ -305,7 +310,7 @@ int main(int argc, char **argv)
     if (argc == 1)
     {
         N = 64;          // Grid divisor
-        dt = 0.05f;      // Time spacing
+        dt = 0.09f;      // Time spacing
         diff = 0.0001f;  // Diffusion rate
         visc = 0.0f;     // Viscosity
         force = 5.0f;    // Velocity force
