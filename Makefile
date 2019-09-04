@@ -5,9 +5,6 @@ OBJ=$(patsubst %.c,%.o,$(SRC))
 
 all : clean main
 
-run :
-	./main
-
 main : $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
 
