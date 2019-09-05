@@ -293,7 +293,6 @@ void center_window(GLFWwindow *window)
     );
 }
 
-
 void initialize(void)
 {
     if (!glfwInit())
