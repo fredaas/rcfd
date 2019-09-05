@@ -31,7 +31,8 @@ enum {
 enum {
     COLOR_RED,
     COLOR_GREEN,
-    COLOR_BLUE
+    COLOR_BLUE,
+    COLOR_WHITE
 };
 
 static int source_color;
@@ -290,8 +291,10 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action,
         case GLFW_KEY_3:
             source_color = COLOR_BLUE;
             break;
+        case GLFW_KEY_4:
+            source_color = COLOR_WHITE;
+            break;
         }
-
     }
 }
 
@@ -377,6 +380,8 @@ void initialize(void)
     glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     lever = 0;
+
+    source_color = COLOR_WHITE;
 
     if (!allocate_data())
         exit(1);
