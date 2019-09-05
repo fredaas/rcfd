@@ -1,30 +1,38 @@
-#include <GL/glut.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <GLFW/glfw3.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
 
 #define IX(i, j) ((i) + (N + 2) * (j))
 
 /* External definitions from solver.c */
-
 extern void dens_step(int N, float *x, float *x0, float *u, float *v,
-                      float diff, float dt);
+    float diff, float dt);
 extern void vel_step(int N, float *u, float *v, float *u0, float *v0,
-                     float visc, float dt);
-
-/* Global variables */
+    float visc, float dt);
 
 static int N;
+static int lever;
+
+static int win_x = 800, win_y = 800;
+
 static float dt, diff, visc;
 static float force, source;
-static int dvel;
-
 static float *u, *v, *u_prev, *v_prev;
 static float *dens, *dens_prev;
 
-static int win_id;
-static int win_x, win_y;
-static int mouse_down[3];
+enum {
+    MOUSE_LEFT,
+    MOUSE_RIGHT
+};
+
+static int mouse_down[2];
+
 static int omx, omy, mx, my;
+
+GLFWwindow* window;
 
 
 /*******************************************************************************
@@ -64,20 +72,20 @@ static int allocate_data(void)
 {
     int size = (N + 2) * (N + 2);
 
-    u = (float *)malloc(size * sizeof(float));
-    v = (float *)malloc(size * sizeof(float));
-    u_prev = (float *)malloc(size * sizeof(float));
-    v_prev = (float *)malloc(size * sizeof(float));
-    dens = (float *)malloc(size * sizeof(float));
+    u         = (float *)malloc(size * sizeof(float));
+    v         = (float *)malloc(size * sizeof(float));
+    u_prev    = (float *)malloc(size * sizeof(float));
+    v_prev    = (float *)malloc(size * sizeof(float));
+    dens      = (float *)malloc(size * sizeof(float));
     dens_prev = (float *)malloc(size * sizeof(float));
 
     if (!u || !v || !u_prev || !v_prev || !dens || !dens_prev)
     {
-        fprintf(stderr, "cannot allocate data\n");
-        return (0);
+        printf("[ERROR] Failed to allocate data\n");
+        return 0;
     }
 
-    return (1);
+    return 1;
 }
 
 
@@ -98,8 +106,6 @@ static void pre_display(void)
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-static void post_display(void) { glutSwapBuffers(); }
-
 static void draw_velocity(void)
 {
     int i, j;
@@ -118,7 +124,6 @@ static void draw_velocity(void)
         for (j = 1; j <= N; j++)
         {
             y = (j - 0.5f) * h;
-
             glVertex2f(x, y);
             glVertex2f(x + u[IX(i, j)], y + v[IX(i, j)]);
         }
@@ -170,7 +175,7 @@ static void draw_density(void)
  ******************************************************************************/
 
 
-static void get_from_UI(float *d, float *u, float *v)
+static void get_mouse_movement(float *d, float *u, float *v)
 {
     int i, j, size = (N + 2) * (N + 2);
 
@@ -179,7 +184,7 @@ static void get_from_UI(float *d, float *u, float *v)
         u[i] = v[i] = d[i] = 0.0f;
     }
 
-    if (!mouse_down[0] && !mouse_down[2])
+    if (!mouse_down[MOUSE_LEFT] && !mouse_down[MOUSE_RIGHT])
         return;
 
     i = (int)((mx / (float)win_x) * N + 1);
@@ -188,13 +193,13 @@ static void get_from_UI(float *d, float *u, float *v)
     if (i < 1 || i > N || j < 1 || j > N)
         return;
 
-    if (mouse_down[0])
+    if (mouse_down[MOUSE_LEFT])
     {
         u[IX(i, j)] = force * (mx - omx);
         v[IX(i, j)] = force * (omy - my);
     }
 
-    if (mouse_down[2])
+    if (mouse_down[MOUSE_RIGHT])
     {
         d[IX(i, j)] = source;
     }
@@ -208,108 +213,140 @@ static void get_from_UI(float *d, float *u, float *v)
 
 /*******************************************************************************
  *
- * Window callback routines
+ * Callbacks
  *
  ******************************************************************************/
 
 
-static void key_func(unsigned char key, int x, int y)
+static void key_callback(GLFWwindow* window, int key, int scancode, int action,
+    int mods)
 {
-    switch (key)
+    if (action == GLFW_PRESS)
     {
-    case 'c':
-        clear_data();
-        break;
-    case 'q':
-        free_data();
-        exit(0);
-        break;
-    case 'v':
-        dvel = !dvel;
-        break;
+        switch (key)
+        {
+        case GLFW_KEY_Q:
+            free_data();
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+            break;
+        case GLFW_KEY_C:
+            clear_data();
+            break;
+        case GLFW_KEY_V:
+            lever = !lever;
+            break;
+        }
+
     }
 }
 
-static void mouse_func(int button, int state, int x, int y)
+static void cursor_position_callback(GLFWwindow* window, double xpos,
+    double ypos)
 {
-    omx = mx = x;
-    omx = my = y;
-
-    mouse_down[button] = state == GLUT_DOWN;
+    mx = xpos;
+    my = ypos;
 }
 
-static void motion_func(int x, int y)
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
-    mx = x;
-    my = y;
-}
-
-static void idle_func(void)
-{
-    get_from_UI(dens_prev, u_prev, v_prev);
-    vel_step(N, u, v, u_prev, v_prev, visc, dt);
-    dens_step(N, dens, dens_prev, u, v, diff, dt);
-
-    glutSetWindow(win_id);
-    glutPostRedisplay();
-}
-
-static void display_func(void)
-{
-    pre_display();
-
-   if (dvel)
-       draw_velocity();
-   else
-        draw_density();
-
-    post_display();
+    if (action == GLFW_PRESS)
+    {
+        mouse_down[MOUSE_LEFT]  = (button == GLFW_MOUSE_BUTTON_LEFT);
+        mouse_down[MOUSE_RIGHT] = (button == GLFW_MOUSE_BUTTON_RIGHT);
+    }
+    if (action == GLFW_RELEASE)
+    {
+        mouse_down[MOUSE_LEFT]  = 0;
+        mouse_down[MOUSE_RIGHT] = 0;
+    }
 }
 
 
 /*******************************************************************************
  *
- * Window management
+ * Utils
  *
  ******************************************************************************/
 
 
-static void open_glut_window(void)
+void center_window(GLFWwindow *window)
 {
-    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+    GLFWmonitor *monitor = glfwGetPrimaryMonitor();
 
-    glutInitWindowPosition(0, 0);
-    glutInitWindowSize(win_x, win_y);
-    win_id = glutCreateWindow("RCFD");
+    if (!monitor)
+        return;
 
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glutSwapBuffers();
-    glClear(GL_COLOR_BUFFER_BIT);
-    glutSwapBuffers();
+    const GLFWvidmode *mode = glfwGetVideoMode(monitor);
+    if (!mode)
+        return;
 
-    pre_display();
+    int monitor_x, monitor_y;
+    glfwGetMonitorPos(monitor, &monitor_x, &monitor_y);
 
-    glutKeyboardFunc(key_func);
-    glutMouseFunc(mouse_func);
-    glutMotionFunc(motion_func);
-    glutIdleFunc(idle_func);
-    glutDisplayFunc(display_func);
+    int window_width, window_height;
+    glfwGetWindowSize(window, &window_width, &window_height);
+
+    glfwSetWindowPos(
+        window,
+        monitor_x + (mode->width - window_width) / 2,
+        monitor_y + (mode->height - window_height) / 2
+    );
 }
 
 
+void initialize(void)
+{
+    if (!glfwInit())
+    {
+        printf("[ERROR] Failed to initialize glfw\n");
+        exit(1);
+    }
+
+    /* Configure window */
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
+    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+    window = glfwCreateWindow(win_x, win_y, "GLFW Window", NULL, NULL);
+    if (!window)
+    {
+        printf("[ERROR] Failed to initialize window\n");
+        exit(1);
+    }
+    center_window(window);
+    glfwSwapInterval(1);
+    glfwMakeContextCurrent(window);
+
+    /* Set callbacks */
+    glfwSetKeyCallback(window, key_callback);
+    glfwSetCursorPosCallback(window, cursor_position_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
+
+    lever = 0;
+
+    if (!allocate_data())
+        exit(1);
+
+    clear_data();
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glfwSwapBuffers(window);
+    glClear(GL_COLOR_BUFFER_BIT);
+}
+
 int main(int argc, char **argv)
 {
-    glutInit(&argc, argv);
+    argc--;
 
-    if (argc == 1)
+    if (argc == 0)
     {
-        N = 64;          // Grid divisor
-        dt = 0.05f;      // Time spacing
-        diff = 0.0001f;  // Diffusion rate
-        visc = 0.0f;     // Viscosity
-        force = 5.0f;    // Velocity force
-        source = 50.0f;  // Amount of density released at source
+        N = 128;          // Grid divisor
+        dt = 0.1f;        // Time spacing
+        diff = 0.0001f;   // Diffusion rate
+        visc = 0.0f;      // Viscosity
+        force = 5.0f;     // Velocity force
+        source = 200.0f;  // Amount of density released at source
         printf(
             "Parameters:\n"
             "    N:      %d\n"
@@ -321,7 +358,7 @@ int main(int argc, char **argv)
             N, dt, diff, visc, force, source
         );
     }
-    else
+    else if (argc == 6)
     {
         N = atoi(argv[1]);
         dt = atof(argv[2]);
@@ -330,7 +367,13 @@ int main(int argc, char **argv)
         force = atof(argv[5]);
         source = atof(argv[6]);
     }
-    
+    else
+    {
+        printf("[ERROR] Expected 6 arguments\n");
+    }
+
+    initialize();
+
     printf(
         "Keys:\n"
         "    'v'           Toggle density/velocity fields\n"
@@ -340,17 +383,27 @@ int main(int argc, char **argv)
         "    'q'           Quit\n"
     );
 
-    dvel = 0;
+    while (!glfwWindowShouldClose(window))
+    {
+        glfwGetFramebufferSize(window, &win_x, &win_y);
+        glViewport(0, 0, win_x, win_y);
 
-    if (!allocate_data())
-        exit(1);
-    clear_data();
+        get_mouse_movement(dens_prev, u_prev, v_prev);
+        vel_step(N, u, v, u_prev, v_prev, visc, dt);
+        dens_step(N, dens, dens_prev, u, v, diff, dt);
 
-    win_x = 800;
-    win_y = 600;
-    open_glut_window();
+        pre_display();
+        if (lever)
+            draw_velocity();
+        else
+            draw_density();
 
-    glutMainLoop();
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
 
-    exit(0);
+    glfwDestroyWindow(window);
+    glfwTerminate();
+
+    return 0;
 }

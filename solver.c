@@ -41,8 +41,9 @@ void lin_solve(int N, int b, float *x, float *x0, float a, float c)
         {
             for (j = 1; j <= N; j++)
             {
-                x[IX(i, j)] = (x0[IX(i, j)] + a * (x[IX(i - 1, j)] + x[IX(i + 1, j)] +
-                               x[IX(i, j - 1)] + x[IX(i, j + 1)])) / c;
+                x[IX(i, j)] = (x0[IX(i, j)] + a * (x[IX(i - 1, j)] +
+                               x[IX(i + 1, j)] + x[IX(i, j - 1)] +
+                               x[IX(i, j + 1)])) / c;
             }
         }
         set_bnd(N, b, x);
@@ -105,8 +106,8 @@ void project(int N, float *u, float *v, float *p, float *div)
         for (j = 1; j <= N; j++)
         {
             div[IX(i, j)] = -0.5f *
-                            (u[IX(i + 1, j)] - u[IX(i - 1, j)] + v[IX(i, j + 1)] -
-                             v[IX(i, j - 1)]) / N;
+                            (u[IX(i + 1, j)] - u[IX(i - 1, j)] +
+                             v[IX(i, j + 1)] - v[IX(i, j - 1)]) / N;
             p[IX(i, j)] = 0;
         }
     }
@@ -129,7 +130,7 @@ void project(int N, float *u, float *v, float *p, float *div)
 }
 
 void dens_step(int N, float *x, float *x0, float *u, float *v, float diff,
-               float dt)
+    float dt)
 {
     add_source(N, x, x0, dt);
     SWAP(x0, x);
@@ -139,7 +140,7 @@ void dens_step(int N, float *x, float *x0, float *u, float *v, float diff,
 }
 
 void vel_step(int N, float *u, float *v, float *u0, float *v0, float visc,
-              float dt)
+    float dt)
 {
     add_source(N, u, u0, dt);
     add_source(N, v, v0, dt);
