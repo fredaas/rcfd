@@ -96,16 +96,6 @@ static int allocate_data(void)
  ******************************************************************************/
 
 
-static void pre_display(void)
-{
-    glViewport(0, 0, win_x, win_y);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluOrtho2D(0.0, 1.0, 0.0, 1.0);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-}
-
 static void draw_velocity(void)
 {
     int i, j;
@@ -391,7 +381,12 @@ int main(int argc, char **argv)
         vel_step(N, u, v, u_prev, v_prev, visc, dt);
         dens_step(N, dens, dens_prev, u, v, diff, dt);
 
-        pre_display();
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        gluOrtho2D(0.0, 1.0, 0.0, 1.0);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
         if (lever)
             draw_velocity();
         else
