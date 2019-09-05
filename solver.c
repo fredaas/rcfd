@@ -1,21 +1,10 @@
 #define IX(i, j) ((i) + (N + 2) * (j))
 
-#define SWAP(x0, x)  \
-{                    \
-    float *tmp = x0; \
-    x0 = x;          \
-    x = tmp;         \
-}
-
-#define FOR_EACH_CELL    \
-for (i = 1; i <= N; i++) \
-{                        \
-for (j = 1; j <= N; j++) \
-{
-
-#define END_FOR \
-}               \
-}
+#define SWAP(x0, x) do { \
+    float *tmp = x0;     \
+    x0 = x;              \
+    x = tmp;             \
+} while (0)
 
 void add_source(int N, float *x, float *s, float dt)
 {
@@ -48,10 +37,15 @@ void lin_solve(int N, int b, float *x, float *x0, float a, float c)
 
     for (k = 0; k < 20; k++)
     {
-        FOR_EACH_CELL
-        x[IX(i, j)] = (x0[IX(i, j)] + a * (x[IX(i - 1, j)] + x[IX(i + 1, j)] + 
-                       x[IX(i, j - 1)] + x[IX(i, j + 1)])) / c;
-        END_FOR
+        for (i = 1; i <= N; i++)
+        {
+            for (j = 1; j <= N; j++)
+            {
+                x[IX(i, j)] = (x0[IX(i, j)] + a * (x[IX(i - 1, j)] +
+                               x[IX(i + 1, j)] + x[IX(i, j - 1)] +
+                               x[IX(i, j + 1)])) / c;
+            }
+        }
         set_bnd(N, b, x);
     }
 }
@@ -69,33 +63,37 @@ void advect(int N, int b, float *d, float *d0, float *u, float *v, float dt)
 
     dt0 = dt * N;
 
-    FOR_EACH_CELL
-        x = i - dt0 * u[IX(i, j)];
-        y = j - dt0 * v[IX(i, j)];
+    for (i = 1; i <= N; i++)
+    {
+        for (j = 1; j <= N; j++)
+        {
+            x = i - dt0 * u[IX(i, j)];
+            y = j - dt0 * v[IX(i, j)];
 
-        if (x < 0.5f)
-            x = 0.5f;
-        if (x > N + 0.5f)
-            x = N + 0.5f;
+            if (x < 0.5f)
+                x = 0.5f;
+            if (x > N + 0.5f)
+                x = N + 0.5f;
 
-        i0 = (int)x;
-        i1 = i0 + 1;
+            i0 = (int)x;
+            i1 = i0 + 1;
 
-        if (y < 0.5f)
-            y = 0.5f;
-        if (y > N + 0.5f)
-            y = N + 0.5f;
+            if (y < 0.5f)
+                y = 0.5f;
+            if (y > N + 0.5f)
+                y = N + 0.5f;
 
-        j0 = (int)y;
-        j1 = j0 + 1;
-        s1 = x - i0;
-        s0 = 1 - s1;
-        t1 = y - j0;
-        t0 = 1 - t1;
+            j0 = (int)y;
+            j1 = j0 + 1;
+            s1 = x - i0;
+            s0 = 1 - s1;
+            t1 = y - j0;
+            t0 = 1 - t1;
 
-        d[IX(i, j)] = s0 * (t0 * d0[IX(i0, j0)] + t1 * d0[IX(i0, j1)]) +
-                      s1 * (t0 * d0[IX(i1, j0)] + t1 * d0[IX(i1, j1)]);
-    END_FOR
+            d[IX(i, j)] = s0 * (t0 * d0[IX(i0, j0)] + t1 * d0[IX(i0, j1)]) +
+                          s1 * (t0 * d0[IX(i1, j0)] + t1 * d0[IX(i1, j1)]);
+        }
+    }
     set_bnd(N, b, d);
 }
 
@@ -103,28 +101,36 @@ void project(int N, float *u, float *v, float *p, float *div)
 {
     int i, j;
 
-    FOR_EACH_CELL
-        div[IX(i, j)] = -0.5f *
-                        (u[IX(i + 1, j)] - u[IX(i - 1, j)] + v[IX(i, j + 1)] -
-                         v[IX(i, j - 1)]) / N;
-        p[IX(i, j)] = 0;
-    END_FOR
+    for (i = 1; i <= N; i++)
+    {
+        for (j = 1; j <= N; j++)
+        {
+            div[IX(i, j)] = -0.5f *
+                            (u[IX(i + 1, j)] - u[IX(i - 1, j)] +
+                             v[IX(i, j + 1)] - v[IX(i, j - 1)]) / N;
+            p[IX(i, j)] = 0;
+        }
+    }
 
     set_bnd(N, 0, div);
     set_bnd(N, 0, p);
     lin_solve(N, 0, p, div, 1, 4);
 
-    FOR_EACH_CELL
-        u[IX(i, j)] -= 0.5f * N * (p[IX(i + 1, j)] - p[IX(i - 1, j)]);
-        v[IX(i, j)] -= 0.5f * N * (p[IX(i, j + 1)] - p[IX(i, j - 1)]);
-    END_FOR
+    for (i = 1; i <= N; i++)
+    {
+        for (j = 1; j <= N; j++)
+        {
+            u[IX(i, j)] -= 0.5f * N * (p[IX(i + 1, j)] - p[IX(i - 1, j)]);
+            v[IX(i, j)] -= 0.5f * N * (p[IX(i, j + 1)] - p[IX(i, j - 1)]);
+        }
+    }
 
     set_bnd(N, 1, u);
     set_bnd(N, 2, v);
 }
 
 void dens_step(int N, float *x, float *x0, float *u, float *v, float diff,
-               float dt)
+    float dt)
 {
     add_source(N, x, x0, dt);
     SWAP(x0, x);
@@ -134,7 +140,7 @@ void dens_step(int N, float *x, float *x0, float *u, float *v, float diff,
 }
 
 void vel_step(int N, float *u, float *v, float *u0, float *v0, float visc,
-              float dt)
+    float dt)
 {
     add_source(N, u, u0, dt);
     add_source(N, v, v0, dt);
