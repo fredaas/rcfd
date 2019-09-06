@@ -22,6 +22,7 @@ static float dt, diff, visc;
 static float force, source;
 static float *u, *v, *u_prev, *v_prev;
 static float *dens, *dens_prev;
+static float R, G, B;
 
 enum {
     MOUSE_LEFT,
@@ -105,14 +106,8 @@ static int allocate_data(void)
  ******************************************************************************/
 
 
-static void draw_velocity(void)
+void set_color(void)
 {
-    int i, j;
-    float x, y, h;
-    float R, G, B;
-
-    h = 1.0f / N;
-
     R = 1.0;
     G = 1.0;
     B = 1.0;
@@ -135,6 +130,14 @@ static void draw_velocity(void)
         B = (256.0 / 256.0);
         break;
     }
+}
+
+static void draw_velocity(void)
+{
+    int i, j;
+    float x, y, h;
+
+    h = 1.0f / N;
 
     glColor3f(R, G, B);
     glLineWidth(1.0f);
@@ -159,30 +162,6 @@ static void draw_density(void)
 {
     int i, j;
     float x, y, h, d00, d01, d10, d11;
-    float R, G, B;
-
-    R = 1.0;
-    G = 1.0;
-    B = 1.0;
-
-    switch (source_color)
-    {
-    case COLOR_RED:
-        R = (256.0 / 256.0);
-        G = (0.0 / 256.0);
-        B = (0.0 / 256.0);
-        break;
-    case COLOR_GREEN:
-        R = (0.0 / 256.0);
-        G = (256.0 / 256.0);
-        B = (0.0 / 256.0);
-        break;
-    case COLOR_BLUE:
-        R = (0.0 / 256.0);
-        G = (190.0 / 256.0);
-        B = (256.0 / 256.0);
-        break;
-    }
 
     h = 1.0f / N;
 
@@ -456,6 +435,8 @@ int main(int argc, char **argv)
         gluOrtho2D(0.0, 1.0, 0.0, 1.0);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+
+        set_color();
 
         if (lever)
             draw_velocity();
