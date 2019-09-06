@@ -39,7 +39,8 @@ enum {
 static int source_color;
 
 static int mouse_down[2];
-static int mouse_down_prev[2];
+static int mouse_released[2];
+static int mouse_pressed[2];
 
 static int omx, omy, mx, my;
 
@@ -197,45 +198,6 @@ static void draw_density(void)
 
 /*******************************************************************************
  *
- * Mouse movements
- *
- ******************************************************************************/
-
-static void apply_density(float *d)
-{
-    int i, j, size = (N + 2) * (N + 2);
-
-    for (i = 0; i < size; i++)
-        d[i] = 0.0f;
-
-    i = (int)((mx / (float)win_x) * N + 1);
-    j = (int)(((win_y - my) / (float)win_y) * N + 1);
-
-    if (i < 1 || i > N || j < 1 || j > N)
-        return;
-
-    d[IX(i, j)] = source;
-}
-static void apply_force(float *u, float *v)
-{
-    int i, j, size = (N + 2) * (N + 2);
-
-    for (i = 0; i < size; i++)
-        u_prev[i] = v_prev[i] = 0.0f;
-
-    i = (int)((mx / (float)win_x) * N + 1);
-    j = (int)(((win_y - my) / (float)win_y) * N + 1);
-
-    if (i < 1 || i > N || j < 1 || j > N)
-        return;
-
-    u[IX(i, j)] = force * (mx - omx);
-    v[IX(i, j)] = force * (omy - my);
-}
-
-
-/*******************************************************************************
- *
  * Callbacks
  *
  ******************************************************************************/
@@ -286,22 +248,14 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     if (action == GLFW_PRESS)
     {
         mouse_down[MOUSE_RIGHT] = (button == GLFW_MOUSE_BUTTON_RIGHT);
-
-        if (button == GLFW_MOUSE_BUTTON_LEFT)
-        {
-            /* Save mouse coordinates */
-            omx = mx;
-            omy = my;
-        }
+        /* Reset in update */
+        mouse_pressed[MOUSE_LEFT] = (button == GLFW_MOUSE_BUTTON_LEFT);
     }
     if (action == GLFW_RELEASE)
     {
         mouse_down[MOUSE_RIGHT] = 0;
-
-        if (button == GLFW_MOUSE_BUTTON_LEFT)
-        {
-            apply_force(u_prev, v_prev);
-        }
+        /* Reset in update */
+        mouse_released[MOUSE_LEFT] = (button == GLFW_MOUSE_BUTTON_LEFT);
     }
 }
 
@@ -380,6 +334,56 @@ void initialize(void)
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
+static void update_density(float *d)
+{
+    int i, j;
+
+    i = (int)((mx / (float)win_x) * N + 1);
+    j = (int)(((win_y - my) / (float)win_y) * N + 1);
+
+    if (i < 1 || i > N || j < 1 || j > N)
+        return;
+
+    d[IX(i, j)] = source;
+}
+static void update_force(float *u, float *v)
+{
+    int i, j;
+
+    i = (int)((omx / (float)win_x) * N + 1);
+    j = (int)(((win_y - omy) / (float)win_y) * N + 1);
+
+    if (i < 1 || i > N || j < 1 || j > N)
+        return;
+
+    u[IX(i, j)] = force * (mx - omx);
+    v[IX(i, j)] = force * (omy - my);
+}
+
+void update(void)
+{
+    int i, size = (N + 2) * (N + 2);
+    for (i = 0; i < size; i++)
+        dens_prev[i] = u_prev[i] = v_prev[i] = 0.0f;
+
+    if (mouse_down[MOUSE_RIGHT])
+    {
+        update_density(dens_prev);
+    }
+    if (mouse_pressed[MOUSE_LEFT])
+    {
+        omx = mx;
+        omy = my;
+    }
+    if (mouse_released[MOUSE_LEFT])
+    {
+        update_force(u_prev, v_prev);
+    }
+
+    mouse_pressed[MOUSE_LEFT]  = 0;
+    mouse_released[MOUSE_LEFT] = 0;
+}
+
 int main(int argc, char **argv)
 {
     argc--;
@@ -433,10 +437,7 @@ int main(int argc, char **argv)
         glfwGetFramebufferSize(window, &win_x, &win_y);
         glViewport(0, 0, win_x, win_y);
 
-        if (mouse_down[MOUSE_RIGHT])
-        {
-            apply_density(dens_prev);
-        }
+        update();
 
         vel_step(N, u, v, u_prev, v_prev, visc, dt);
         dens_step(N, dens, dens_prev, u, v, diff, dt);
