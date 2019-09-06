@@ -28,6 +28,15 @@ enum {
     MOUSE_RIGHT
 };
 
+enum {
+    COLOR_RED,
+    COLOR_GREEN,
+    COLOR_BLUE,
+    COLOR_WHITE
+};
+
+static int source_color;
+
 static int mouse_down[2];
 
 static int omx, omy, mx, my;
@@ -100,10 +109,34 @@ static void draw_velocity(void)
 {
     int i, j;
     float x, y, h;
+    float R, G, B;
 
     h = 1.0f / N;
 
-    glColor3f(1.0f, 1.0f, 1.0f);
+    R = 1.0;
+    G = 1.0;
+    B = 1.0;
+
+    switch (source_color)
+    {
+    case COLOR_RED:
+        R = (256.0 / 256.0);
+        G = (0.0 / 256.0);
+        B = (0.0 / 256.0);
+        break;
+    case COLOR_GREEN:
+        R = (0.0 / 256.0);
+        G = (256.0 / 256.0);
+        B = (0.0 / 256.0);
+        break;
+    case COLOR_BLUE:
+        R = (0.0 / 256.0);
+        G = (190.0 / 256.0);
+        B = (256.0 / 256.0);
+        break;
+    }
+
+    glColor3f(R, G, B);
     glLineWidth(1.0f);
 
     glBegin(GL_LINES);
@@ -126,6 +159,30 @@ static void draw_density(void)
 {
     int i, j;
     float x, y, h, d00, d01, d10, d11;
+    float R, G, B;
+
+    R = 1.0;
+    G = 1.0;
+    B = 1.0;
+
+    switch (source_color)
+    {
+    case COLOR_RED:
+        R = (256.0 / 256.0);
+        G = (0.0 / 256.0);
+        B = (0.0 / 256.0);
+        break;
+    case COLOR_GREEN:
+        R = (0.0 / 256.0);
+        G = (256.0 / 256.0);
+        B = (0.0 / 256.0);
+        break;
+    case COLOR_BLUE:
+        R = (0.0 / 256.0);
+        G = (190.0 / 256.0);
+        B = (256.0 / 256.0);
+        break;
+    }
 
     h = 1.0f / N;
 
@@ -143,13 +200,13 @@ static void draw_density(void)
             d10 = dens[IX(i + 1, j)];
             d11 = dens[IX(i + 1, j + 1)];
 
-            glColor3f(d00, d00, d00);
+            glColor3f(d00 * R, d00 * G, d00 * B);
             glVertex2f(x, y);
-            glColor3f(d10, d10, d10);
+            glColor3f(d10 * R, d10 * G, d10 * B);
             glVertex2f(x + h, y);
-            glColor3f(d11, d11, d11);
+            glColor3f(d11 * R, d11 * G, d11 * B);
             glVertex2f(x + h, y + h);
-            glColor3f(d01, d01, d01);
+            glColor3f(d01 * R, d01 * G, d01 * B);
             glVertex2f(x, y + h);
         }
     }
@@ -225,8 +282,19 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action,
         case GLFW_KEY_V:
             lever = !lever;
             break;
+        case GLFW_KEY_1:
+            source_color = COLOR_RED;
+            break;
+        case GLFW_KEY_2:
+            source_color = COLOR_GREEN;
+            break;
+        case GLFW_KEY_3:
+            source_color = COLOR_BLUE;
+            break;
+        case GLFW_KEY_4:
+            source_color = COLOR_WHITE;
+            break;
         }
-
     }
 }
 
@@ -312,6 +380,8 @@ void initialize(void)
     glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     lever = 0;
+
+    source_color = COLOR_WHITE;
 
     if (!allocate_data())
         exit(1);
