@@ -13,7 +13,7 @@ void add_source(int N, float *x, float *s, float dt)
         x[i] += dt * s[i];
 }
 
-void set_bnd(int N, int b, float *x)
+void set_bound(int N, int b, float *x)
 {
     int i;
 
@@ -46,7 +46,7 @@ void lin_solve(int N, int b, float *x, float *x0, float a, float c)
                                x[IX(i, j + 1)])) / c;
             }
         }
-        set_bnd(N, b, x);
+        set_bound(N, b, x);
     }
 }
 
@@ -94,7 +94,7 @@ void advect(int N, int b, float *d, float *d0, float *u, float *v, float dt)
                           s1 * (t0 * d0[IX(i1, j0)] + t1 * d0[IX(i1, j1)]);
         }
     }
-    set_bnd(N, b, d);
+    set_bound(N, b, d);
 }
 
 void project(int N, float *u, float *v, float *p, float *div)
@@ -112,8 +112,8 @@ void project(int N, float *u, float *v, float *p, float *div)
         }
     }
 
-    set_bnd(N, 0, div);
-    set_bnd(N, 0, p);
+    set_bound(N, 0, div);
+    set_bound(N, 0, p);
     lin_solve(N, 0, p, div, 1, 4);
 
     for (i = 1; i <= N; i++)
@@ -125,11 +125,11 @@ void project(int N, float *u, float *v, float *p, float *div)
         }
     }
 
-    set_bnd(N, 1, u);
-    set_bnd(N, 2, v);
+    set_bound(N, 1, u);
+    set_bound(N, 2, v);
 }
 
-void dens_step(int N, float *x, float *x0, float *u, float *v, float diff,
+void density_step(int N, float *x, float *x0, float *u, float *v, float diff,
     float dt)
 {
     add_source(N, x, x0, dt);
@@ -139,7 +139,7 @@ void dens_step(int N, float *x, float *x0, float *u, float *v, float diff,
     advect(N, 0, x, x0, u, v, dt);
 }
 
-void vel_step(int N, float *u, float *v, float *u0, float *v0, float visc,
+void velocity_step(int N, float *u, float *v, float *u0, float *v0, float visc,
     float dt)
 {
     add_source(N, u, u0, dt);

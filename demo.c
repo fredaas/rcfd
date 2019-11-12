@@ -7,22 +7,10 @@
 
 #define IX(i, j) ((i) + (N + 2) * (j))
 
-/* External definitions from solver.c */
-extern void dens_step(int N, float *x, float *x0, float *u, float *v,
-    float diff, float dt);
-extern void vel_step(int N, float *u, float *v, float *u0, float *v0,
-    float visc, float dt);
-
-static int N;
-static int lever;
-
-static int win_x = 800, win_y = 800;
-
-static float dt, diff, visc;
-static float force, source;
-static float *u, *v, *u_prev, *v_prev;
-static float *dens, *dens_prev;
-static float R, G, B;
+enum {
+    FOCUS_VECTOR,
+    FOCUS_DENSITY
+};
 
 enum {
     MOUSE_LEFT,
@@ -36,7 +24,22 @@ enum {
     COLOR_WHITE
 };
 
-static int source_color;
+/* External definitions from solver.c */
+extern void density_step(int N, float *x, float *x0, float *u, float *v,
+    float diff, float dt);
+extern void velocity_step(int N, float *u, float *v, float *u0, float *v0,
+    float visc, float dt);
+
+static int N;
+static int focus;
+
+static int win_x = 800, win_y = 800;
+
+static float dt, diff, visc;
+static float force, source;
+static float *u, *v, *u_prev, *v_prev;
+static float *dens, *dens_prev;
+static float R, G, B;
 
 static int mouse_down[2];
 static int mouse_released[2];
@@ -56,18 +59,12 @@ GLFWwindow* window;
 
 static void free_data(void)
 {
-    if (u)
-        free(u);
-    if (v)
-        free(v);
-    if (u_prev)
-        free(u_prev);
-    if (v_prev)
-        free(v_prev);
-    if (dens)
-        free(dens);
-    if (dens_prev)
-        free(dens_prev);
+    free(u);
+    free(v);
+    free(u_prev);
+    free(v_prev);
+    free(dens);
+    free(dens_prev);
 }
 
 static void clear_data(void)
@@ -75,9 +72,7 @@ static void clear_data(void)
     int i, size = (N + 2) * (N + 2);
 
     for (i = 0; i < size; i++)
-    {
         u[i] = v[i] = u_prev[i] = v_prev[i] = dens[i] = dens_prev[i] = 0.0f;
-    }
 }
 
 static int allocate_data(void)
@@ -108,13 +103,13 @@ static int allocate_data(void)
  ******************************************************************************/
 
 
-void set_color(void)
+void set_color(int color)
 {
     R = 1.0;
     G = 1.0;
     B = 1.0;
 
-    switch (source_color)
+    switch (color)
     {
     case COLOR_RED:
         R = (256.0 / 256.0);
@@ -218,19 +213,19 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action,
             clear_data();
             break;
         case GLFW_KEY_V:
-            lever = !lever;
+            focus = (focus + 1) % 2;
             break;
         case GLFW_KEY_1:
-            source_color = COLOR_RED;
+            set_color(COLOR_RED);
             break;
         case GLFW_KEY_2:
-            source_color = COLOR_GREEN;
+            set_color(COLOR_GREEN);
             break;
         case GLFW_KEY_3:
-            source_color = COLOR_BLUE;
+            set_color(COLOR_BLUE);
             break;
         case GLFW_KEY_4:
-            source_color = COLOR_WHITE;
+            set_color(COLOR_WHITE);
             break;
         }
     }
@@ -247,16 +242,60 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
     if (action == GLFW_PRESS)
     {
-        mouse_down[MOUSE_RIGHT] = (button == GLFW_MOUSE_BUTTON_RIGHT);
-        /* Reset in update */
-        mouse_pressed[MOUSE_LEFT] = (button == GLFW_MOUSE_BUTTON_LEFT);
+        if (button == GLFW_MOUSE_BUTTON_RIGHT)
+            mouse_down[MOUSE_RIGHT] = 1;
+        if (button == GLFW_MOUSE_BUTTON_LEFT)
+            mouse_pressed[MOUSE_LEFT] = 1;
     }
     if (action == GLFW_RELEASE)
     {
-        mouse_down[MOUSE_RIGHT] = 0;
-        /* Reset in update */
-        mouse_released[MOUSE_LEFT] = (button == GLFW_MOUSE_BUTTON_LEFT);
+        if (button == GLFW_MOUSE_BUTTON_RIGHT)
+            mouse_down[MOUSE_RIGHT] = 0;
+        if (button == GLFW_MOUSE_BUTTON_LEFT)
+            mouse_released[MOUSE_LEFT] = 1;
     }
+}
+
+/* Returns 1 once when 'key' is pressed, 0 otherwise */
+int is_mouse_pressed(int key)
+{
+    int key_state = 0;
+    switch (key)
+    {
+    case MOUSE_LEFT:
+        key_state = mouse_pressed[MOUSE_LEFT];
+        mouse_pressed[MOUSE_LEFT] = 0;
+        return key_state;
+    }
+
+    return -1;
+}
+
+/* Returns 1 once when 'key' is released, 0 otherwise */
+int is_mouse_released(int key)
+{
+    int key_state = 0;
+    switch (key)
+    {
+    case MOUSE_LEFT:
+        key_state = mouse_released[MOUSE_LEFT];
+        mouse_released[MOUSE_LEFT] = 0;
+        return key_state;
+    }
+
+    return -1;
+}
+
+/* Returns 1 as long as 'key' is down, 0 otherwise */
+int is_mouse_down(int key)
+{
+    switch (key)
+    {
+    case MOUSE_RIGHT:
+        return mouse_down[MOUSE_RIGHT];
+    }
+
+    return -1;
 }
 
 
@@ -319,9 +358,7 @@ void initialize(void)
     glfwSetCursorPosCallback(window, cursor_position_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
 
-    lever = 0;
-
-    source_color = COLOR_WHITE;
+    focus = FOCUS_DENSITY;
 
     if (!allocate_data())
         exit(1);
@@ -332,6 +369,8 @@ void initialize(void)
     glClear(GL_COLOR_BUFFER_BIT);
     glfwSwapBuffers(window);
     glClear(GL_COLOR_BUFFER_BIT);
+
+    set_color(COLOR_WHITE);
 }
 
 static void update_density(float *d)
@@ -366,22 +405,35 @@ void update(void)
     for (i = 0; i < size; i++)
         dens_prev[i] = u_prev[i] = v_prev[i] = 0.0f;
 
-    if (mouse_down[MOUSE_RIGHT])
-    {
-        update_density(dens_prev);
-    }
-    if (mouse_pressed[MOUSE_LEFT])
+    if (is_mouse_pressed(MOUSE_LEFT))
     {
         omx = mx;
         omy = my;
     }
-    if (mouse_released[MOUSE_LEFT])
+    else if (is_mouse_released(MOUSE_LEFT))
     {
         update_force(u_prev, v_prev);
     }
+    if (is_mouse_down(MOUSE_RIGHT))
+    {
+        update_density(dens_prev);
+    }
 
-    mouse_pressed[MOUSE_LEFT]  = 0;
-    mouse_released[MOUSE_LEFT] = 0;
+    velocity_step(N, u, v, u_prev, v_prev, visc, dt);
+    density_step(N, dens, dens_prev, u, v, diff, dt);
+}
+
+void draw(void)
+{
+    switch (focus)
+    {
+    case FOCUS_VECTOR:
+        draw_velocity();
+        break;
+    case FOCUS_DENSITY:
+        draw_density();
+        break;
+    }
 }
 
 int main(int argc, char **argv)
@@ -396,16 +448,6 @@ int main(int argc, char **argv)
         visc = 0.0f;      // Viscosity
         force = 5.0f;     // Velocity force
         source = 200.0f;  // Amount of density released at source
-        printf(
-            "Parameters:\n"
-            "    N:      %d\n"
-            "    dt:     %g\n"
-            "    diff:   %g\n"
-            "    visc:   %g\n"
-            "    force:  %g\n"
-            "    source: %g\n",
-            N, dt, diff, visc, force, source
-        );
     }
     else if (argc == 6)
     {
@@ -424,6 +466,16 @@ int main(int argc, char **argv)
     initialize();
 
     printf(
+        "Parameters:\n"
+        "    N:      %d\n"
+        "    dt:     %g\n"
+        "    diff:   %g\n"
+        "    visc:   %g\n"
+        "    force:  %g\n"
+        "    source: %g\n",
+        N, dt, diff, visc, force, source
+    );
+    printf(
         "Keys:\n"
         "    'v'           Toggle density/velocity fields\n"
         "    'c'           Clear fields\n"
@@ -436,24 +488,14 @@ int main(int argc, char **argv)
     {
         glfwGetFramebufferSize(window, &win_x, &win_y);
         glViewport(0, 0, win_x, win_y);
-
-        update();
-
-        vel_step(N, u, v, u_prev, v_prev, visc, dt);
-        dens_step(N, dens, dens_prev, u, v, diff, dt);
-
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         gluOrtho2D(0.0, 1.0, 0.0, 1.0);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        set_color();
-
-        if (lever)
-            draw_velocity();
-        else
-            draw_density();
+        update();
+        draw();
 
         glfwSwapBuffers(window);
         glfwPollEvents();
