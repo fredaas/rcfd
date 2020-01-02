@@ -477,10 +477,10 @@ int main(int argc, char **argv)
     );
     printf(
         "Keys:\n"
-        "    'v'           Toggle density/velocity fields\n"
+        "    'v'           Toggle fields\n"
         "    'c'           Clear fields\n"
-        "    'right-mouse' Add densitites\n"
-        "    'left-mouse'  Add velocities\n"
+        "    'right mouse' Add densitites\n"
+        "    'left mouse'  Add velocities\n"
         "    'q'           Quit\n"
     );
 
